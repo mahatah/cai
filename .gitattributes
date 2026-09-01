@@ -1,0 +1,35 @@
+# Enforce consistent LF line endings across the repository.
+# Context: the tree had LF blobs but a CRLF working tree and no attributes, so
+# git under WSL (core.autocrlf unset) reported every file modified and a commit
+# from WSL could flip line endings repo-wide. text=auto stores text as LF in the
+# repo; eol=lf checks out LF on every platform (this project runs under WSL/Linux).
+* text=auto eol=lf
+
+# Binary assets - never apply text/eol conversion.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.bmp  binary
+*.webp binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+*.tar  binary
+*.7z   binary
+*.woff  binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary
+*.eot  binary
+*.mp3  binary
+*.mp4  binary
+*.mov  binary
+*.wav  binary
+*.bin  binary
+*.exe  binary
+*.dll  binary
+*.so   binary
+*.pcap   binary
+*.pcapng binary
