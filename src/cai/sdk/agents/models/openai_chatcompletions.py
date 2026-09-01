@@ -4529,6 +4529,11 @@ class OpenAIChatCompletionsModel(Model):
 
     def _intermediate_logs(self):
         """Intermediate logging if conditions are met."""
+        # Honor CAI_TELEMETRY. The session-end upload (cli_headless) is gated on this
+        # flag, but this intermediate upload to the Alias logs endpoint historically was
+        # not, so it fired every INTERMEDIATE_LOG_INTERVAL interactions regardless. Gate it too.
+        if not get_config().telemetry:
+            return
         if (
             self.logger
             and self.interaction_counter > 0
