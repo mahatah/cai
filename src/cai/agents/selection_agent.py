@@ -26,6 +26,7 @@ from cai.tools.misc.agent_discovery import (
 )
 from cai.tools.web.search_web import make_web_search_with_explanation
 from cai.util import create_system_prompt_renderer, load_prompt_template
+from cai.util.llm_api_base import model_qualifies_for_alias_api_url
 
 load_dotenv()
 _cfg = get_config()
@@ -44,6 +45,14 @@ if _cfg.perplexity_api_key:
 
 input_guardrails, output_guardrails = get_security_guardrails()
 
+# The "-thinking" model variant is an Alias-hosted convention; local / OpenAI-compatible
+# endpoints (vLLM, LM Studio, etc.) serve only the plain model name.
+_model_name = (
+    f"{_cfg.model}-thinking"
+    if model_qualifies_for_alias_api_url(_cfg.model)
+    else _cfg.model
+)
+
 selection_agent = Agent(
     name="Selection Agent",
     description="""Orchestrator: routes cybersecurity work to the best CAI specialist via handoffs,
@@ -59,7 +68,7 @@ or answers pure meta-questions about which agent to use.""",
     tool_use_behavior="run_llm_again",
     reset_tool_choice=True,
     model=OpenAIChatCompletionsModel(
-        model=f"{_cfg.model}-thinking",
+        model=_model_name,
         openai_client=AsyncOpenAI(),
         agent_name="Selection Agent",
         agent_type="selection_agent",
