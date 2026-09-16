@@ -97,5 +97,18 @@
         "supports_prompt_caching": true,
         "supports_response_schema": true,
         "supports_tool_choice": true
+    },
+    "venice/openai-gpt-6-astra": {
+        "max_tokens": 1050000,
+        "max_input_tokens": 922000,
+        "max_output_tokens": 128000,
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00005,
+        "litellm_provider": "openai",
+        "mode": "chat",
+        "supports_function_calling": true,
+        "supports_tool_choice": true,
+        "supports_vision": true,
+        "supports_reasoning": true
     }
 }
