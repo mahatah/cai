@@ -520,6 +520,7 @@ OUTPUT REQUIREMENTS:
 
     # Use LiteLLM for model compatibility (handles alias1, OpenRouter, etc.)
     import litellm
+    from cai.util.llm_api_base import is_venice_model, venice_litellm_kwargs
 
     model = os.getenv("CAI_CTR_DIGEST_MODEL", "alias1")
 
@@ -538,8 +539,11 @@ OUTPUT REQUIREMENTS:
 
     # Apply custom configuration for alias models (same logic as OpenAIChatCompletionsModel)
     model_str = str(model).lower()
+    # Configure for venice/<model> (strip prefix, pin Venice base/key; LiteLLM cannot infer it)
+    if is_venice_model(model_str):
+        kwargs.update(venice_litellm_kwargs(model))
     # Configure for alias2-mini (compact Alias model; same API gateway as other alias models)
-    if model_str == "alias2-mini":
+    elif model_str == "alias2-mini":
         kwargs["api_base"] = "https://api.aliasrobotics.com:666/"
         kwargs["custom_llm_provider"] = "openai"
         kwargs["api_key"] = os.getenv("ALIAS_API_KEY", "sk-alias-1234567890")

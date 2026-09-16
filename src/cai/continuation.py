@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 from rich.console import Console
 
 from cai.config import get_config
+from cai.util.llm_api_base import is_venice_model, venice_litellm_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -125,8 +126,11 @@ IMPORTANT: Respond with ONLY the continuation prompt. No explanations, no "Here'
             "stream": False
         }
         
+        # Configure for venice/<model> (strip prefix, pin Venice base/key; LiteLLM cannot infer it)
+        if is_venice_model(model_name):
+            kwargs.update(venice_litellm_kwargs(model_name))
         # Configure for alias2-mini (compact Alias model; same API gateway as other alias models)
-        if model_name.lower() == "alias2-mini":
+        elif model_name.lower() == "alias2-mini":
             kwargs["api_base"] = "https://api.aliasrobotics.com:666/"
             kwargs["custom_llm_provider"] = "openai"
             kwargs["api_key"] = (cfg.alias_api_key or "sk-alias-1234567890").strip()

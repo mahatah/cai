@@ -522,3 +522,19 @@ class TestModelCommandIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_handle_accepts_venice_ids_without_catalog(monkeypatch):
+    """venice/<model> ids have no local catalog; /model must accept them as typed."""
+    from cai.repl.commands import model as model_mod
+
+    monkeypatch.setattr(model_mod, "load_all_available_models", lambda: (["gpt-4"], []))
+    monkeypatch.delenv("CAI_MODEL", raising=False)
+    cmd = ModelCommand()
+
+    assert cmd.handle_model_command(["venice/openai-gpt-6-astra"]) is True
+    assert os.environ["CAI_MODEL"] == "venice/openai-gpt-6-astra"
+
+    # Unknown non-venice ids are still refused and leave CAI_MODEL untouched.
+    assert cmd.handle_model_command(["no-such-model"]) is True
+    assert os.environ["CAI_MODEL"] == "venice/openai-gpt-6-astra"

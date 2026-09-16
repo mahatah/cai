@@ -150,8 +150,10 @@ from .chatcompletions.model import (
 from cai.config import get_config
 from cai.util.llm_api_base import (
     explicit_custom_llm_api_base_configured,
-    resolve_llm_openai_compatible_base,
+    is_venice_model,
     resolve_llm_openai_compatible_api_key,
+    resolve_llm_openai_compatible_base,
+    venice_request_config,
 )
 from cai.errors import LLMEmptyAssistantError, LLMRateLimited, LLMTimeout
 from cai.util.gateway_rate_limiter import (
@@ -3242,9 +3244,13 @@ class OpenAIChatCompletionsModel(Model):
         # IMPORTANT: Apply cache_control AFTER fix_message_list() to ensure it's preserved
         # Note: Use "claude" in string to support both direct and openrouter/anthropic/claude models
         model_str = str(self.model).lower()
-        if ("claude" in model_str or "gemini" in model_str) and len(
-            converted_messages
-        ) > 0:
+        # venice/<claude-*>: Venice validates request bodies strictly and takes no
+        # Anthropic cache_control blocks, so skip the normalisation for its ids.
+        if (
+            ("claude" in model_str or "gemini" in model_str)
+            and not is_venice_model(model_str)
+            and len(converted_messages) > 0
+        ):
             # Debug: Show messages BEFORE normalization
             if os.getenv("CAI_SHOW_CACHE", "").lower() in ("true", "1", "yes"):
                 print(f"[CACHE-DEBUG] BEFORE normalization: {len(converted_messages)} messages")
@@ -3501,7 +3507,15 @@ class OpenAIChatCompletionsModel(Model):
         # Gateway base: CSI_CUSTOM_ENDPOINT / ALIAS_API_URL if model qualifies; else OPENAI_API_BASE (see llm_api_base).
         _model_for_base = str(kwargs.get("model") or os.getenv("CAI_MODEL") or "")
         _alias_gateway_base = resolve_llm_openai_compatible_base(_model_for_base).rstrip("/")
-        if model_str == "alias2-mini":
+        # Venice.ai: evaluated per call (the REPL hot-swaps ``self.model`` in place, so an
+        # ``__init__``-time flag would go stale). Routed below to the direct httpx client
+        # with the Venice base URL, ``VENICE_API_KEY`` and ``venice_parameters``.
+        use_venice = is_venice_model(model_str)
+        if use_venice:
+            kwargs.update(venice_request_config(kwargs["model"]))
+            if not converted_tools:
+                kwargs.pop("tool_choice", None)
+        elif model_str == "alias2-mini":
             kwargs["api_base"] = _alias_gateway_base
             kwargs["custom_llm_provider"] = "openai"
             kwargs["api_key"] = (get_config().alias_api_key or "sk-alias-1234567890").strip()
@@ -3673,7 +3687,10 @@ class OpenAIChatCompletionsModel(Model):
         # inject extra_body for Azure/OpenAI/Anthropic — upstream rejects it and LiteLLM
         # may retry (see comment above).
         _unrestricted = os.getenv("CAI_UNRESTRICTED", "false").strip().lower() in ("true", "1", "yes")
-        if self._is_alias_model:
+        # ``_is_alias_model`` is fixed at construction and goes stale when the REPL swaps
+        # ``self.model`` in place; Venice rejects unknown body fields, so gate on the
+        # per-call decision as well.
+        if self._is_alias_model and not use_venice:
             kwargs.setdefault("extra_body", {})
             kwargs["extra_body"]["steering_enabled"] = _unrestricted
             if _unrestricted:
@@ -3951,7 +3968,13 @@ class OpenAIChatCompletionsModel(Model):
         while retry_count < max_retries:
             try:
                 cfg = get_config()
-                if (self._is_alias_model or cfg.force_httpx) and not self.is_ollama:
+                if use_venice:
+                    # Venice.ai: always the direct client (kwargs already carry the Venice
+                    # api_base/api_key/venice_parameters); never OPENAI_API_BASE or LiteLLM.
+                    return await self._direct_httpx_completion(
+                        kwargs, model_settings, tool_choice, stream, parallel_tool_calls
+                    )
+                elif (self._is_alias_model or cfg.force_httpx) and not self.is_ollama:
                     # [N] Direct httpx — bypass LiteLLM for alias/forced models
                     return await self._direct_httpx_completion(
                         kwargs, model_settings, tool_choice, stream, parallel_tool_calls
@@ -4549,6 +4572,7 @@ class OpenAIChatCompletionsModel(Model):
                 raise UserError(
                     "Missing API key for selected model. "
                     "For alias-family models (alias*/cai*/csi*), set ALIAS_API_KEY. "
+                    "For Venice.ai models (venice/*), set VENICE_API_KEY. "
                     "For OpenAI models, set OPENAI_API_KEY. "
                     f"(CAI_MODEL={_c.model!r})"
                 )

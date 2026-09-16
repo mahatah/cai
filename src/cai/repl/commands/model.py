@@ -20,6 +20,7 @@ from rich.text import Text  # pylint: disable=import-error
 from cai.repl.commands.base import Command, register_command
 from cai.repl.ui.banner import _CAI_GREEN, _quick_guide_subpanel_title
 from cai.util import COST_TRACKER, get_ollama_api_base, get_ollama_auth_headers
+from cai.util.llm_api_base import is_venice_model
 
 console = Console()
 
@@ -878,7 +879,9 @@ class ModelCommand(Command):
                     title="Invalid number",
                 )
                 return True
-        elif model_arg in known:
+        elif model_arg in known or is_venice_model(model_arg):
+            # venice/<model>: no local catalog (Venice serves whatever id it lists), and the
+            # provider is resolved per call, so the id is accepted as typed.
             model_name = model_arg
         else:
             _print_model_selection_error(

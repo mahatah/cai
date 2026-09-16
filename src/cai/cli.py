@@ -50,6 +50,7 @@ from cai.repl.commands.parallel import (
 from cai.sdk.agents import set_tracing_disabled
 from wasabi import color
 from cai.util import ensure_litellm_transcription_support
+from cai.util.llm_api_base import is_venice_model
 from cai.repl.ui.banner import display_banner
 from cai.repl.ui.startup_hints import StartupHints, mask_key_for_hint
 
@@ -292,6 +293,16 @@ def main():
             print(f"Loaded {len(PARALLEL_CONFIGS)} parallel agents from {resolved_yaml_path}", file=sys.stderr)
             _maybe_enable_auto_run(resolved_yaml_path)
             boot.start("Continuing startup...", leading_blank=False)
+
+    # --- Venice.ai provider: a missing key would otherwise surface only inside the first
+    # agent turn, as a generic client/auth error that does not name VENICE_API_KEY. Warn up front.
+    if is_venice_model(cfg.model) and not (os.getenv("VENICE_API_KEY") or "").strip():
+        boot.stop()
+        boot_console.print(
+            f"[yellow]VENICE_API_KEY is not set but CAI_MODEL={cfg.model} routes to Venice.ai. "
+            "Set VENICE_API_KEY in your .env or environment (see docs/providers/venice.md).[/yellow]"
+        )
+        boot.start("Continuing startup...", leading_blank=False)
 
     # --- API server mode ---
     if parsed_args.api:

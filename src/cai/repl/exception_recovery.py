@@ -16,6 +16,8 @@ import traceback
 from collections.abc import Callable
 from typing import Any
 
+from cai.util.llm_api_base import is_venice_model, venice_litellm_kwargs
+
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """You are helping debug a CAI (cybersecurity agent CLI) runtime error.
@@ -147,6 +149,9 @@ def _resolve_model_name(agent: Any, cfg: Any) -> str:
 def _litellm_kwargs_for_model(model_name: str, cfg: Any) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     mn = model_name.lower()
+    if is_venice_model(mn):
+        # venice/<model>: strip the prefix and pin base/key; LiteLLM cannot infer Venice.
+        return venice_litellm_kwargs(model_name)
     if mn == "alias2-mini" or ("alias" in mn and "alias0.5" not in mn):
         kwargs["api_base"] = "https://api.aliasrobotics.com:666/"
         kwargs["custom_llm_provider"] = "openai"
