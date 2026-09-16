@@ -154,6 +154,7 @@ CAI is compatible with multiple model platforms and providers:
 - **[OpenRouter](providers/openrouter.md)** - Access to 200+ models via unified API
 - **[Ollama](providers/ollama.md)** - Local model hosting and inference
 - **[Azure OpenAI](providers/azure.md)** - Enterprise-hosted OpenAI models
+- **[Venice.ai](providers/venice.md)** - Privacy-focused hosted models (`venice/<model>`, `VENICE_API_KEY`)
 
 See the **Model Providers** section for detailed configuration guides.
 
