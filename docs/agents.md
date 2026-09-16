@@ -1,5 +1,10 @@
 # Agents
 
+For GitHub Copilot subscriptions, the separate [Copilot SDK execution
+mode](copilot.md) reuses CAI role templates and a restricted local toolset.
+Legacy agent factories, handoffs, and model settings below apply to the
+original CAI runtime, not to `cai copilot`.
+
 Agents are the core of CAI. An agent uses Large Language Models (LLMs), configured with instructions and tools to perform specialized cybersecurity tasks. Each agent is defined in its own `.py` file in `src/cai/agents` and optimized for specific security domains.
 
 ## Available Agents

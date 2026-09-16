@@ -53,6 +53,7 @@ nav:
 
   - Guides:
       - Running Agents: running_agents.md
+      - GitHub Copilot SDK: copilot.md
       - Continue Mode: continue_mode.md
       - Working with Results: results.md
       - Streaming: streaming.md

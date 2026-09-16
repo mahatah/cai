@@ -126,6 +126,12 @@ def _ensure_headless_bound() -> None:
 
 def main():
     """Parse CLI arguments and dispatch to the appropriate mode."""
+    if sys.argv[1:2] == ["copilot"]:
+        from cai.copilot.cli import main as copilot_main
+
+        copilot_main(sys.argv[2:])
+        return
+
     deferred_update_info: dict | None = None
     update_holder: dict = {}
     update_thread: threading.Thread | None = None
@@ -214,6 +220,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog="cai",
         description="Cybersecurity AI Framework",
+        epilog="GitHub Copilot SDK mode: cai copilot --help (a separate execution runtime).",
         add_help=True,
         allow_abbrev=False,
     )

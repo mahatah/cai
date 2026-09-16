@@ -19,6 +19,14 @@
 
 ---
 
+## GitHub Copilot integration in this fork
+
+The `github-copilot-sdk` branch adds an opt-in **`cai copilot` execution mode**
+using the official GitHub Copilot SDK, pinned corporate GitHub identity, live
+model discovery/selection, and CAI role prompts with approved local tools.
+The existing LM Studio/legacy runtime remains unchanged. See
+[setup, enterprise prerequisites, and runtime limitations](docs/copilot.md).
+
 > [!IMPORTANT]
 > **📦 This repository is archived.**
 >

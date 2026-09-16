@@ -1,5 +1,9 @@
 # Models
 
+For GitHub Copilot subscriptions, use the separate [Copilot SDK execution
+mode](copilot.md). It owns its own agent loop and is not one of the model
+providers described below. Existing LM Studio configuration can remain intact.
+
 The Agents SDK comes with out-of-the-box support for OpenAI models in two flavors:
 
 -   **Recommended**: the [`OpenAIResponsesModel`][cai.sdk.agents.models.openai_responses.OpenAIResponsesModel], which calls OpenAI APIs using the new [Responses API](https://platform.openai.com/docs/api-reference/responses).
