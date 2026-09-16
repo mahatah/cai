@@ -51,6 +51,24 @@ def get_model_input_tokens(model):
                         return tokens
 
         # 2) Fallback to cached native LiteLLM pricing: ./pricings/native_pricing.json
+        # 1b) The pricing file the cost tracker uses (package dir in an editable/pip
+        #     install, or CAI_PRICINGS_DIR), so the context window does not depend on the
+        #     directory `cai` was launched from.
+        try:
+            from cai.util.config_utils import get_pricings_dir
+
+            tracker_path = get_pricings_dir() / "pricing.json"
+        except Exception:
+            tracker_path = None
+        if tracker_path is not None and tracker_path.exists():
+            with open(tracker_path, encoding="utf-8") as f:
+                pricing_data = json.load(f)
+                model_info = pricing_data.get(model_name, {})
+                if model_info and isinstance(model_info, dict):
+                    tokens = model_info.get("max_input_tokens")
+                    if isinstance(tokens, int) and tokens > 0:
+                        return tokens
+
         native_path = pathlib.Path("pricings") / "native_pricing.json"
         if native_path.exists():
             with open(native_path, encoding="utf-8") as f:
