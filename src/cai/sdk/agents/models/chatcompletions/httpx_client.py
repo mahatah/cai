@@ -141,6 +141,11 @@ async def direct_httpx_completion(
         For non-streaming: a ``litellm.ModelResponse``.
         For streaming: a tuple ``(Response, async_generator)``.
     """
+    # Work on a copy: the caller re-dispatches the same dict on its own retry loop, and
+    # popping api_base/api_key out of it would make the next attempt re-resolve them from
+    # the environment (for a prefix-stripped venice/ id that means OPENAI_API_BASE or the
+    # Alias gateway with the wrong key).
+    kwargs = dict(kwargs)
     # kwargs api_base > resolver (CSI_CUSTOM_ENDPOINT / ALIAS_API_URL for qualifying model ids)
     _mid = str(kwargs.get("model") or model_name or "")
     api_base = kwargs.pop(
@@ -244,7 +249,11 @@ async def direct_httpx_completion(
                                         from litellm import ModelResponse as _MR
                                         from litellm.types.utils import StreamingChoices, Delta
 
-                                        delta_data = data.get("choices", [{}])[0].get("delta", {})
+                                        # OpenAI-style ``stream_options.include_usage`` sends a final
+                                        # usage-only chunk with ``"choices": []``; treat it as an
+                                        # empty delta so the usage below is still surfaced.
+                                        choice_data = (data.get("choices") or [{}])[0] or {}
+                                        delta_data = choice_data.get("delta") or {}
                                         delta = Delta(
                                             role=delta_data.get("role"),
                                             content=delta_data.get("content"),
@@ -253,7 +262,7 @@ async def direct_httpx_completion(
                                         choices = [StreamingChoices(
                                             index=0,
                                             delta=delta,
-                                            finish_reason=data.get("choices", [{}])[0].get("finish_reason"),
+                                            finish_reason=choice_data.get("finish_reason"),
                                         )]
                                         usage = None
                                         usage_data = data.get("usage")
