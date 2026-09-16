@@ -113,6 +113,24 @@ def _build_413_details(url: str, body: Any) -> dict:
     }
 
 
+def _normalize_provider_cost(data: dict) -> dict:
+    """Map a provider's top-level ``cost`` object onto CAI's ``response.cost`` float.
+
+    ``litellm.ModelResponse(**data)`` keeps unknown top-level fields as attributes, and CAI
+    treats ``response.cost`` as a USD float or ``None`` (``run_to_jsonl`` calls ``float()``
+    on it). Venice.ai returns ``{"usd": ..., "diem": ...}``; keep the USD figure when it is
+    numeric, otherwise drop the field.
+    """
+    cost = data.get("cost") if isinstance(data, dict) else None
+    if isinstance(cost, dict):
+        usd = cost.get("usd")
+        if isinstance(usd, (int, float)) and not isinstance(usd, bool):
+            data["cost"] = float(usd)
+        else:
+            data.pop("cost", None)
+    return data
+
+
 async def direct_httpx_completion(
     *,
     kwargs: dict,
@@ -408,7 +426,7 @@ async def direct_httpx_completion(
                     resp.raise_for_status()
                     data = resp.json()
                     from litellm import ModelResponse as _MR
-                    return _MR(**data)
+                    return _MR(**_normalize_provider_cost(data))
 
                 except httpx.ConnectError as e:
                     last_error = e

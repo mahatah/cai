@@ -102,3 +102,32 @@ async def test_stream_parser_accepts_usage_only_chunk(monkeypatch):
     assert [c.choices[0].delta.content for c in out] == ["pong", None, None]
     assert [c.choices[0].finish_reason for c in out] == [None, "stop", None]
     assert out[-1].usage.prompt_tokens == 3 and out[-1].usage.completion_tokens == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "provider_cost,expected",
+    [
+        ({"usd": 0.00067, "diem": 0.0}, 0.00067),   # Venice.ai breakdown object
+        ({"diem": 0.1}, None),                       # no USD figure -> dropped
+        (0.0004, 0.0004),                            # plain number passes through
+    ],
+    ids=["venice-object", "object-without-usd", "plain-number"],
+)
+async def test_non_stream_response_normalises_provider_cost(monkeypatch, provider_cost, expected):
+    monkeypatch.setenv("OPENAI_API_BASE", BASE)
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    monkeypatch.delenv("ALIAS_API_KEY", raising=False)
+    payload = _completion()
+    payload["cost"] = provider_cost
+    payload["venice_parameters"] = {"include_venice_system_prompt": False}
+    _install(monkeypatch, lambda request: httpx.Response(200, json=payload))
+
+    resp = await _call({"model": "m", "messages": [{"role": "user", "content": "hi"}], "stream": False})
+    assert resp.choices[0].message.content == "Hello"
+    cost = getattr(resp, "cost", None)
+    if expected is None:
+        assert cost is None
+    else:
+        assert isinstance(cost, float) and cost == pytest.approx(expected)
+        float(cost)  # what run_to_jsonl does with it

@@ -444,3 +444,47 @@ def test_venice_astra_context_window_and_cost_resolve(monkeypatch):
     assert COST_TRACKER.get_model_pricing(MODEL_ID) == (pytest.approx(1e-5), pytest.approx(5e-5))
     # 42 prompt + 5 completion tokens at $10 / $50 per 1M tokens
     assert calculate_model_cost(MODEL_ID, 42, 5) == pytest.approx(42e-5 + 25e-5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.allow_call_model_methods
+async def test_provider_reported_cost_is_preferred_over_table_estimate(monkeypatch):
+    """Venice reports the request's USD cost; when the pricing table yields 0 (as it did on
+    the Kali box) the tracker must still see the real figure, so CAI_PRICE_LIMIT works and
+    the JSONL recorder never falls through to float() on a raw provider object."""
+    from litellm import ModelResponse as _MR
+    from cai.util import COST_TRACKER
+
+    payload = _fake_completion().model_dump()
+    payload["cost"] = {"usd": 0.00067, "diem": 0.0}  # raw Venice shape
+    normalized = httpx_client._normalize_provider_cost(dict(payload))
+    assert normalized["cost"] == pytest.approx(0.00067)
+
+    async def fake_direct(**kwargs):
+        return _MR(**normalized)
+
+    seen = {}
+
+    def fake_process(model, input_tokens, output_tokens, reasoning_tokens=0, provided_cost=None, **kw):
+        seen["provided_cost"] = provided_cost
+        return provided_cost or 0.0
+
+    monkeypatch.setattr(occ, "_direct_httpx_completion_impl", fake_direct)
+    monkeypatch.setattr(occ, "calculate_model_cost", lambda *a, **k: 0.0)
+    monkeypatch.setattr(COST_TRACKER, "process_interaction_cost", fake_process)
+    monkeypatch.setattr(COST_TRACKER, "process_total_cost", lambda *a, **k: 0.0)
+
+    model = OpenAIChatCompletionsModel(
+        model=MODEL_ID, openai_client=AsyncOpenAI(api_key="unused", base_url="http://localhost:1"),
+    )
+    result = await model.get_response(
+        system_instructions="You are CAI.",
+        input="ping",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+    )
+    assert result.output, "turn must complete"
+    assert seen["provided_cost"] == pytest.approx(0.00067)

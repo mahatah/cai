@@ -1112,6 +1112,17 @@ class OpenAIChatCompletionsModel(Model):
             # Process costs for non-streaming mode
             model_name = str(self.model)
             interaction_cost = calculate_model_cost(model_name, input_tokens, output_tokens)
+            # Prefer the provider's own billing figure when the response carries one
+            # (Venice.ai returns cost.usd, mapped to a float by the direct client); the
+            # pricing-table estimate is only a fallback.
+            _reported_cost = getattr(response, "cost", None)
+            if (
+                isinstance(_reported_cost, (int, float))
+                and not isinstance(_reported_cost, bool)
+                and _reported_cost > 0
+            ):
+                interaction_cost = float(_reported_cost)
+
             
             # Process the costs through COST_TRACKER only once
             if interaction_cost > 0.0:

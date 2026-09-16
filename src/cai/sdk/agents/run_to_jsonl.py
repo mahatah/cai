@@ -61,6 +61,23 @@ def get_session_recorder(workspace_name=None):
     return _session_recorder
 
 
+def _coerce_cost(value) -> float:
+    """Best-effort float from a response ``cost`` value; never raises.
+
+    Accepts numbers and numeric strings, and provider breakdown objects such as Venice's
+    ``{"usd": ..., "diem": ...}`` (USD figure wins). Anything else records 0.0 rather than
+    aborting the agent turn over a log line.
+    """
+    if isinstance(value, dict):
+        value = value.get("usd", value.get("total", value.get("cost")))
+    if value is None or isinstance(value, bool):
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 class DataRecorder:  # pylint: disable=too-few-public-methods
     """
     Records training data from litellm.completion
@@ -192,7 +209,7 @@ class DataRecorder:  # pylint: disable=too-few-public-methods
             pass
         # Fallback to msg.cost if COST_TRACKER didn't have it
         if interaction_cost == 0.0 and hasattr(msg, "cost"):
-            interaction_cost = float(msg.cost) if msg.cost is not None else 0.0
+            interaction_cost = _coerce_cost(msg.cost)
 
         # Usar el total_cost proporcionado o actualizar el interno
         if total_cost is not None:
